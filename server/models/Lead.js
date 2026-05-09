@@ -19,7 +19,7 @@ const leadSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['New','Contacted','Follow-up','Interested','Hot','Mature','Closed','Not Interested'],
+    enum: ['New','Contacted','Follow-up','Interested','Hot Mature','Closed','Not Interested'],
     default: 'New'
   },
   assignedTo:   { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

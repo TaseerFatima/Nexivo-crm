@@ -2,24 +2,60 @@ const Lead = require('../models/Lead')
 
 const getLeads = async (req, res) => {
   try {
-    const { status, city, project, assignedTo, search } = req.query
-    const filter = {}
-    if (status)     filter.status = status
-    if (city)       filter.city   = new RegExp(city, 'i')
-    if (project)    filter.project = new RegExp(project, 'i')
-    if (assignedTo) filter.assignedTo = assignedTo
-    if (search)     filter.$or = [
-      { name:  new RegExp(search, 'i') },
-      { phone: new RegExp(search, 'i') },
-    ]
+    const { status, city, project, assignedTo, search } = req.query;
+    const filter = {};
+
+    // --- ROLE-BASED LOGIC ---
+    if (req.user.role === 'operator') {
+      // Force the filter to ONLY show leads belonging to this operator
+      filter.assignedTo = req.user._id;
+    } else {
+      // Admins and Owners can filter by any specific operator if they choose
+      if (assignedTo) filter.assignedTo = assignedTo;
+    }
+
+    // --- GENERAL FILTERS ---
+    if (status) filter.status = status;
+    if (city) filter.city = new RegExp(city, 'i');
+    if (project) filter.project = new RegExp(project, 'i');
+    
+    if (search) {
+      filter.$or = [
+        { name: new RegExp(search, 'i') },
+        { phone: new RegExp(search, 'i') },
+      ];
+    }
+
     const leads = await Lead.find(filter)
       .populate('assignedTo', 'name email')
-      .sort({ createdAt: -1 })
-    res.json(leads)
+      .sort({ createdAt: -1 });
+
+    res.json(leads);
   } catch (err) {
-    res.status(500).json({ message: err.message })
+    res.status(500).json({ message: err.message });
   }
-}
+};
+
+// const getLeads = async (req, res) => {
+//   try {
+//     const { status, city, project, assignedTo, search } = req.query
+//     const filter = {}
+//     if (status)     filter.status = status
+//     if (city)       filter.city   = new RegExp(city, 'i')
+//     if (project)    filter.project = new RegExp(project, 'i')
+//     if (assignedTo) filter.assignedTo = assignedTo
+//     if (search)     filter.$or = [
+//       { name:  new RegExp(search, 'i') },
+//       { phone: new RegExp(search, 'i') },
+//     ]
+//     const leads = await Lead.find(filter)
+//       .populate('assignedTo', 'name email')
+//       .sort({ createdAt: -1 })
+//     res.json(leads)
+//   } catch (err) {
+//     res.status(500).json({ message: err.message })
+//   }
+// }
 
 const createLead = async (req, res) => {
   try {

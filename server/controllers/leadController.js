@@ -36,6 +36,32 @@ const getLeads = async (req, res) => {
   }
 };
 
+
+const createLead = async (req, res) => {
+  try {
+    const { phone } = req.body;
+    
+    // Clean phone input to prevent formatting bypasses (stripping spaces/dashes)
+    const cleanPhone = phone.replace(/\D/g, '');
+
+    // Duplicate detection check
+    const duplicate = await Lead.findOne({ phone: new RegExp(cleanPhone, 'i') })
+      .populate('assignedTo', 'name');
+      
+    if (duplicate) {
+      return res.status(400).json({ 
+        message: `Duplicate detected! This lead already exists and is assigned to ${duplicate.assignedTo?.name || 'Unassigned'}.`,
+        lead: duplicate 
+      });
+    }
+
+    const lead = await Lead.create(req.body);
+    res.status(201).json(lead);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 // const getLeads = async (req, res) => {
 //   try {
 //     const { status, city, project, assignedTo, search } = req.query
@@ -57,17 +83,7 @@ const getLeads = async (req, res) => {
 //   }
 // }
 
-const createLead = async (req, res) => {
-  try {
-    const duplicate = await Lead.findOne({ phone: req.body.phone })
-    if (duplicate)
-      return res.status(400).json({ message: 'Lead already exists with this phone', lead: duplicate })
-    const lead = await Lead.create(req.body)
-    res.status(201).json(lead)
-  } catch (err) {
-    res.status(500).json({ message: err.message })
-  }
-}
+
 
 const getLeadById = async (req, res) => {
   try {

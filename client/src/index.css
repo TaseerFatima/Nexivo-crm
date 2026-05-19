@@ -1,4 +1,156 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=DM+Sans:wght@300;400;500;600;700;800&display=swap');
+ 
+/* ── Tokens ─────────────────────────────────────────────── */
 :root {
+  /* Surfaces */
+  --surface-0:   #0d0e14;
+  --surface-1:   #13141c;
+  --surface-2:   #1a1b26;
+  --surface-3:   #1f2130;
+ 
+  /* Glass */
+  --glass-bg:    rgba(19, 20, 28, 0.75);
+ 
+  /* Text */
+  --text-primary:   #f0ede8;
+  --text-secondary: #b8b4ae;
+  --text-muted:     #6b6870;
+ 
+  /* Accent — aged amber/gold */
+  --accent:         #d4a760;
+  --accent-subtle:  rgba(212, 167, 96, 0.1);
+  --accent-border:  rgba(212, 167, 96, 0.3);
+ 
+  /* Borders */
+  --border:    rgba(255, 255, 255, 0.07);
+ 
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.3);
+  --shadow-lg: 0 20px 50px rgba(0,0,0,0.6), 0 8px 16px rgba(0,0,0,0.4);
+ 
+  /* Typography */
+  --font-heading: 'Playfair Display', Georgia, serif;
+  --font-body:    'DM Sans', system-ui, sans-serif;
+ 
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--surface-0);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color-scheme: dark;
+}
+ 
+/* ── Reset ───────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+ 
+body {
+  margin: 0;
+  background: var(--surface-0);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+}
+ 
+#root {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  text-align: left;
+  border-inline: none;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
+ 
+/* ── Typography ─────────────────────────────────────────── */
+h1, h2, h3 {
+  font-family: var(--font-heading);
+  color: var(--text-primary);
+  margin: 0;
+}
+ 
+p { margin: 0; }
+ 
+/* ── Scrollbar ───────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+ 
+/* ── Noise texture overlay ───────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+}
+ 
+#root { position: relative; z-index: 1; }
+ 
+/* ── Animations ─────────────────────────────────────────── */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+ 
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+ 
+/* ── Form element resets ─────────────────────────────────── */
+input, textarea, select, button {
+  font-family: var(--font-body);
+  font-size: inherit;
+}
+ 
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-muted);
+}
+ 
+option {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+ 
+/* ── Recharts overrides ──────────────────────────────────── */
+.recharts-cartesian-axis-tick-value {
+  fill: var(--text-muted) !important;
+  font-size: 11px !important;
+  font-family: var(--font-body) !important;
+}
+ 
+.recharts-tooltip-wrapper {
+  outline: none !important;
+}
+ 
+/* ── Date input ──────────────────────────────────────────── */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.6);
+  cursor: pointer;
+}
+ 
+/* ── Link reset ──────────────────────────────────────────── */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+
+
+
+
+
+/* :root {
   --text: #6b6375;
   --text-h: #08060d;
   --bg: #fff;
@@ -108,4 +260,4 @@ code {
   line-height: 135%;
   padding: 4px 8px;
   background: var(--code-bg);
-}
+} */

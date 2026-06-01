@@ -1,8 +1,49 @@
 const Lead = require('../models/Lead')
 const User = require('../models/User');
 
+// Helper to clean phone numbers to digits only
+const cleanPhoneNumber = (phone) => {
+  return phone ? phone.replace(/\D/g, '') : '';
+};
+
+// Helper to sync overdue status of leads in real-time
+const syncOverdueLeads = async () => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Set isOverdue: true for leads whose follow-up date is in the past and status is not Closed/Not Interested
+    await Lead.updateMany(
+      { 
+        followUpDate: { $lt: today }, 
+        status: { $nin: ['Closed', 'Not Interested'] }, 
+        isOverdue: false 
+      },
+      { isOverdue: true }
+    );
+
+    // Reset isOverdue: false for leads whose follow-up date is today/future, null, or status is Closed/Not Interested
+    await Lead.updateMany(
+      { 
+        $or: [
+          { followUpDate: { $gte: today } },
+          { followUpDate: null },
+          { status: { $in: ['Closed', 'Not Interested'] } }
+        ], 
+        isOverdue: true 
+      },
+      { isOverdue: false }
+    );
+  } catch (err) {
+    console.error('Error syncing overdue leads:', err.message);
+  }
+};
+
 const getLeads = async (req, res) => {
   try {
+    // 1. Sync overdue states dynamically on lead lookup
+    await syncOverdueLeads();
+
     const { status, city, project, assignedTo, search } = req.query;
     const filter = {};
 
@@ -21,10 +62,16 @@ const getLeads = async (req, res) => {
     if (project) filter.project = new RegExp(project, 'i');
     
     if (search) {
-      filter.$or = [
-        { name: new RegExp(search, 'i') },
-        { phone: new RegExp(search, 'i') },
+      const cleanedSearch = search.replace(/\D/g, '');
+      const searchConditions = [
+        { name: new RegExp(search, 'i') }
       ];
+      if (cleanedSearch) {
+        searchConditions.push({ phone: new RegExp(cleanedSearch, 'i') });
+      } else {
+        searchConditions.push({ phone: new RegExp(search, 'i') });
+      }
+      filter.$or = searchConditions;
     }
 
     const leads = await Lead.find(filter)
@@ -37,43 +84,43 @@ const getLeads = async (req, res) => {
   }
 };
 
+// Helper for finding operator with the lightest workload (round-robin auto-allocation)
+const getAutoAssignmentOperator = async () => {
+  const activeOperators = await User.find({ role: 'operator', isActive: true });
+  if (activeOperators.length === 0) return null;
 
-// const createLead = async (req, res) => {
-//   try {
-//     const { phone } = req.body;
-    
-//     // Clean phone input to prevent formatting bypasses (stripping spaces/dashes)
-//     const cleanPhone = phone.replace(/\D/g, '');
+  const operatorWorkloads = await Lead.aggregate([
+    { $match: { status: { $nin: ['Closed', 'Not Interested'] } } }, // Only count open active leads
+    { $group: { _id: '$assignedTo', count: { $sum: 1 } } }
+  ]);
 
-//     // Duplicate detection check
-//     const duplicate = await Lead.findOne({ phone: new RegExp(cleanPhone, 'i') })
-//       .populate('assignedTo', 'name');
-      
-//     if (duplicate) {
-//       return res.status(400).json({ 
-//         message: `Duplicate detected! This lead already exists and is assigned to ${duplicate.assignedTo?.name || 'Unassigned'}.`,
-//         lead: duplicate 
-//       });
-//     }
+  const workloadMap = {};
+  operatorWorkloads.forEach(op => {
+    if (op._id) workloadMap[op._id.toString()] = op.count;
+  });
 
-//     const lead = await Lead.create(req.body);
-//     res.status(201).json(lead);
-//   } catch (err) {
-//     res.status(500).json({ message: err.message });
-//   }
-// };
+  activeOperators.sort((a, b) => {
+    const countA = workloadMap[a._id.toString()] || 0;
+    const countB = workloadMap[b._id.toString()] || 0;
+    return countA - countB;
+  });
 
+  return activeOperators[0]._id;
+};
 
+// Internal/Manual lead creation (authenticated)
 const createLead = async (req, res) => {
   try {
     const { phone, name, city, project, budget, source } = req.body;
     let { assignedTo } = req.body;
     
-    // 1. Clean phone input for accurate duplicate detection
-    const cleanPhone = phone.replace(/\D/g, '');
+    const cleanPhone = cleanPhoneNumber(phone);
+    if (!cleanPhone) {
+      return res.status(400).json({ message: 'Phone number is required.' });
+    }
 
-    // 2. Duplicate detection check (Requirement #12)
-    const duplicate = await Lead.findOne({ phone: new RegExp(cleanPhone, 'i') })
+    // Duplicate detection (Requirement #12)
+    const duplicate = await Lead.findOne({ phone: cleanPhone })
       .populate('assignedTo', 'name');
       
     if (duplicate) {
@@ -83,41 +130,14 @@ const createLead = async (req, res) => {
       });
     }
 
-    // 3. Auto-Assignment Logic (Requirement #4)
-    // If no specific operator was assigned, automatically find the best match
+    // Auto-assignment
     if (!assignedTo) {
-      // Find all active operators in the system
-      const activeOperators = await User.find({ role: 'operator', isActive: true });
-      
-      if (activeOperators.length > 0) {
-        // Run an aggregation to count how many active leads each operator currently has
-        const operatorWorkloads = await Lead.aggregate([
-          { $match: { status: { $ne: 'Closed' } } }, // Only count open/active leads
-          { $group: { _id: '$assignedTo', count: { $sum: 1 } } }
-        ]);
-
-        // Map workloads for quick lookup
-        const workloadMap = {};
-        operatorWorkloads.forEach(op => {
-          if (op._id) workloadMap[op._id.toString()] = op.count;
-        });
-
-        // Sort operators by who has the lowest workload count
-        activeOperators.sort((a, b) => {
-          const countA = workloadMap[a._id.toString()] || 0;
-          const countB = workloadMap[b._id.toString()] || 0;
-          return countA - countB;
-        });
-
-        // Assign to the operator with the lightest workload
-        assignedTo = activeOperators[0]._id;
-      }
+      assignedTo = await getAutoAssignmentOperator();
     }
 
-    // 4. Create the lead with the finalized assignment
     const lead = await Lead.create({
       name,
-      phone,
+      phone: cleanPhone,
       city,
       project,
       budget,
@@ -131,51 +151,155 @@ const createLead = async (req, res) => {
   }
 };
 
+// Public unauthenticated webhook lead capture (Facebook Ads, Website forms, WhatsApp inbound)
+const capturePublicLead = async (req, res) => {
+  try {
+    const { phone, name, city, project, budget, source } = req.body;
+    
+    const cleanPhone = cleanPhoneNumber(phone);
+    if (!cleanPhone || !name) {
+      return res.status(400).json({ message: 'Name and Phone number are required.' });
+    }
+
+    // Duplicate detection
+    const duplicate = await Lead.findOne({ phone: cleanPhone })
+      .populate('assignedTo', 'name');
+      
+    if (duplicate) {
+      return res.status(400).json({ 
+        message: `Duplicate detected! This lead already exists and is assigned to ${duplicate.assignedTo?.name || 'Unassigned'}.`,
+        lead: duplicate 
+      });
+    }
+
+    // Auto-assignment using round robin workload algorithm
+    const assignedTo = await getAutoAssignmentOperator();
+
+    const lead = await Lead.create({
+      name,
+      phone: cleanPhone,
+      city,
+      project,
+      budget,
+      source: source || 'Website',
+      assignedTo
+    });
+
+    res.status(201).json(lead);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
 
 const getLeadById = async (req, res) => {
   try {
+    await syncOverdueLeads();
+
     const lead = await Lead.findById(req.params.id)
       .populate('assignedTo', 'name email')
-      .populate('notes.createdBy', 'name')
-    if (!lead) return res.status(404).json({ message: 'Lead not found' })
-    res.json(lead)
+      .populate('notes.createdBy', 'name');
+
+    if (!lead) return res.status(404).json({ message: 'Lead not found' });
+    res.json(lead);
   } catch (err) {
-    res.status(500).json({ message: err.message })
+    res.status(500).json({ message: err.message });
   }
-}
+};
 
 const updateStatus = async (req, res) => {
   try {
     const lead = await Lead.findByIdAndUpdate(
       req.params.id, { status: req.body.status }, { new: true }
-    )
-    res.json(lead)
+    );
+    res.json(lead);
   } catch (err) {
-    res.status(500).json({ message: err.message })
+    res.status(500).json({ message: err.message });
   }
-}
+};
 
 const assignLead = async (req, res) => {
   try {
     const lead = await Lead.findByIdAndUpdate(
       req.params.id, { assignedTo: req.body.assignedTo }, { new: true }
-    ).populate('assignedTo', 'name email')
-    res.json(lead)
+    ).populate('assignedTo', 'name email');
+    res.json(lead);
   } catch (err) {
-    res.status(500).json({ message: err.message })
+    res.status(500).json({ message: err.message });
   }
-}
+};
+
+const updateLead = async (req, res) => {
+  try {
+    const { name, phone, city, project, budget, source, status, followUpDate } = req.body;
+    const updateFields = {};
+
+    if (name !== undefined) updateFields.name = name;
+    if (city !== undefined) updateFields.city = city;
+    if (project !== undefined) updateFields.project = project;
+    if (budget !== undefined) updateFields.budget = budget;
+    if (source !== undefined) updateFields.source = source;
+    if (status !== undefined) updateFields.status = status;
+
+    if (phone !== undefined) {
+      const cleanPhone = cleanPhoneNumber(phone);
+      if (!cleanPhone) {
+        return res.status(400).json({ message: 'Phone number cannot be empty.' });
+      }
+
+      // Check if phone already exists under another lead
+      const duplicate = await Lead.findOne({ phone: cleanPhone, _id: { $ne: req.params.id } });
+      if (duplicate) {
+        return res.status(400).json({ message: 'Another lead with this phone number already exists!' });
+      }
+      updateFields.phone = cleanPhone;
+    }
+
+    if (followUpDate !== undefined) {
+      updateFields.followUpDate = followUpDate ? new Date(followUpDate) : null;
+      if (followUpDate) {
+        const today = new Date().setHours(0, 0, 0, 0);
+        const follow = new Date(followUpDate).setHours(0, 0, 0, 0);
+        updateFields.isOverdue = follow < today && status !== 'Closed' && status !== 'Not Interested';
+      } else {
+        updateFields.isOverdue = false;
+      }
+    }
+
+    const lead = await Lead.findByIdAndUpdate(req.params.id, updateFields, { new: true })
+      .populate('assignedTo', 'name email')
+      .populate('notes.createdBy', 'name');
+
+    if (!lead) return res.status(404).json({ message: 'Lead not found' });
+    res.json(lead);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
 
 const addNote = async (req, res) => {
   try {
-    const lead = await Lead.findById(req.params.id)
-    if (!lead) return res.status(404).json({ message: 'Lead not found' })
-    lead.notes.push({ text: req.body.text, createdBy: req.user._id })
-    await lead.save()
-    res.status(201).json(lead)
-  } catch (err) {
-    res.status(500).json({ message: err.message })
-  }
-}
+    const lead = await Lead.findById(req.params.id);
+    if (!lead) return res.status(404).json({ message: 'Lead not found' });
+    lead.notes.push({ text: req.body.text, createdBy: req.user._id });
+    await lead.save();
+    
+    const updatedLead = await Lead.findById(req.params.id)
+      .populate('assignedTo', 'name email')
+      .populate('notes.createdBy', 'name');
 
-module.exports = { getLeads, createLead, getLeadById, updateStatus, assignLead, addNote }
+    res.status(201).json(updatedLead);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports = {
+  getLeads,
+  createLead,
+  capturePublicLead,
+  getLeadById,
+  updateStatus,
+  assignLead,
+  updateLead,
+  addNote
+};

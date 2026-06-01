@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import api from '../../api/axios';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Shield, TrendingUp, Users, Award, LogOut, CheckSquare } from 'lucide-react';
+import { Shield, TrendingUp, Users, Award, LogOut, Calendar, Globe } from 'lucide-react';
  
 const OwnerDashboard = () => {
-  const [stats, setStats] = useState({ total: 0, todayLeads: 0, statusCounts: [] });
+  const [stats, setStats] = useState({ total: 0, todayLeads: 0, weeklyLeads: 0, monthlyLeads: 0, statusCounts: [], sourceCounts: [] });
   const [leaderboard, setLeaderboard] = useState([]);
  
   useEffect(() => {
@@ -27,7 +27,7 @@ const OwnerDashboard = () => {
   const closedDeals = stats.statusCounts?.find(s => s._id === 'Closed')?.count || 0;
   const conversionRate = stats.total > 0 ? ((closedDeals / stats.total) * 100).toFixed(1) : 0;
  
-  const CHART_COLORS = ['#d4a760', '#a78bfa', '#34d399', '#fb7185', '#60a5fa', '#fbbf24', '#f472b6'];
+  const CHART_COLORS = ['#d4a760', '#a78bfa', '#34d399', '#fb7185', '#60a5fa', '#fbbf24', '#f472b6', '#2dd4bf'];
  
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -44,6 +44,12 @@ const OwnerDashboard = () => {
     return null;
   };
  
+  // Complete operator leaderboard sorting with conversion rate calculation
+  const completedLeaderboard = leaderboard.map(op => {
+    const rate = op.total > 0 ? ((op.closed / op.total) * 100).toFixed(1) : '0.0';
+    return { ...op, rate: parseFloat(rate) };
+  }).sort((a, b) => b.closed - a.closed || b.rate - a.rate);
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--surface-0)', padding: '2rem 1.5rem' }}>
       {/* Ambient glow */}
@@ -93,20 +99,21 @@ const OwnerDashboard = () => {
           </button>
         </header>
  
-        {/* Metric Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+        {/* Metric Cards Matrix - Gross Daily, Weekly, Monthly & Conversion Metrics */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '2.5rem' }}>
           {[
-            { icon: <Users size={20} />, label: 'Total Leads', value: stats.total, accent: 'var(--accent)' },
-            { icon: <TrendingUp size={20} />, label: 'Conversion Rate', value: `${conversionRate}%`, accent: '#34d399' },
-            { icon: <CheckSquare size={20} />, label: "Today's Inbound", value: stats.todayLeads, accent: '#a78bfa' },
+            { icon: <Users size={20} />, label: 'Total Leads', value: stats.total, accent: 'var(--accent)', sub: `Today: +${stats.todayLeads}` },
+            { icon: <TrendingUp size={20} />, label: 'Conversion Rate', value: `${conversionRate}%`, accent: '#34d399', sub: `Deals: ${closedDeals}` },
+            { icon: <Calendar size={20} />, label: '7-Day Inbound', value: stats.weeklyLeads, accent: '#a78bfa', sub: 'Last 7 days gross' },
+            { icon: <Globe size={20} />, label: '30-Day Inbound', value: stats.monthlyLeads, accent: '#60a5fa', sub: 'Last 30 days gross' },
           ].map((card, i) => (
             <div key={i}
               style={{
                 background: 'var(--glass-bg)', backdropFilter: 'blur(20px)',
                 WebkitBackdropFilter: 'blur(20px)',
                 border: '1px solid var(--border)', borderRadius: 18,
-                padding: '1.5rem 1.75rem',
-                display: 'flex', alignItems: 'center', gap: '1.1rem',
+                padding: '1.25rem 1.5rem',
+                display: 'flex', alignItems: 'center', gap: '1rem',
                 transition: 'all 160ms ease-out',
                 position: 'relative', overflow: 'hidden',
               }}
@@ -114,22 +121,23 @@ const OwnerDashboard = () => {
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'translateY(0)'; }}
             >
               <div style={{
-                width: 46, height: 46, borderRadius: 12, flexShrink: 0,
+                width: 44, height: 44, borderRadius: 12, flexShrink: 0,
                 background: `${card.accent}18`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: card.accent,
               }}>{card.icon}</div>
               <div>
-                <p style={{ margin: 0, fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{card.label}</p>
-                <h3 style={{ margin: '0.25rem 0 0', fontSize: '2.1rem', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-heading)', letterSpacing: '-0.04em', lineHeight: 1 }}>
+                <p style={{ margin: 0, fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{card.label}</p>
+                <h3 style={{ margin: '0.2rem 0 0', fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-heading)', letterSpacing: '-0.04em', lineHeight: 1 }}>
                   {card.value}
                 </h3>
+                <p style={{ margin: '4px 0 0', fontSize: '0.68rem', color: 'var(--text-muted)' }}>{card.sub}</p>
               </div>
             </div>
           ))}
         </div>
  
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '1.25rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '1.25rem', marginBottom: '2rem' }}>
           {/* Leaderboard */}
           <div style={{
             background: 'var(--glass-bg)', backdropFilter: 'blur(20px)',
@@ -141,12 +149,12 @@ const OwnerDashboard = () => {
               letterSpacing: '0.12em', color: 'var(--text-muted)', textTransform: 'uppercase',
               display: 'flex', alignItems: 'center', gap: 8,
             }}>
-              <Award size={14} color="#fbbf24" /> Operator Leaderboard
+              <Award size={14} color="#fbbf24" /> Operator Performance
             </h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxHeight: 320, overflowY: 'auto' }}>
-              {leaderboard.length === 0 ? (
+              {completedLeaderboard.length === 0 ? (
                 <p style={{ fontSize: '0.83rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>No operations logged yet.</p>
-              ) : leaderboard.map((op, index) => (
+              ) : completedLeaderboard.map((op, index) => (
                 <div key={op.name}
                   style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -170,7 +178,7 @@ const OwnerDashboard = () => {
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <p style={{ margin: 0, fontSize: '0.78rem', fontWeight: 700, color: '#34d399' }}>{op.closed} closed</p>
-                    <p style={{ margin: '1px 0 0', fontSize: '0.68rem', color: 'var(--text-muted)' }}>{op.total} total</p>
+                    <p style={{ margin: '1px 0 0', fontSize: '0.68rem', color: 'var(--text-muted)' }}>{op.rate}% rate · {op.total} leads</p>
                   </div>
                 </div>
               ))}
@@ -201,128 +209,34 @@ const OwnerDashboard = () => {
             </ResponsiveContainer>
           </div>
         </div>
+
+        {/* Source breakdown chart row */}
+        <div style={{
+          background: 'var(--glass-bg)', backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          border: '1px solid var(--border)', borderRadius: 20, padding: '1.5rem',
+          marginBottom: '2rem'
+        }}>
+          <h2 style={{
+            margin: '0 0 1.5rem', fontSize: '0.72rem', fontWeight: 700,
+            letterSpacing: '0.12em', color: 'var(--text-muted)', textTransform: 'uppercase',
+          }}>Lead Sources Breakdown</h2>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={stats.sourceCounts} layout="vertical" barSize={16}>
+              <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
+              <YAxis dataKey="_id" type="category" tick={{ fontSize: 10, fill: 'var(--text-primary)', fontWeight: 600 }} axisLine={false} tickLine={false} />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+              <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                {stats.sourceCounts?.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={CHART_COLORS[(index + 3) % CHART_COLORS.length]} fillOpacity={0.85} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </div>
   );
 };
  
 export default OwnerDashboard;
-
-
-
-
-
-
-
-
-// import { useEffect, useState } from 'react';
-// import api from '../../api/axios';
-// import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-// import { Shield, TrendingUp, Users, Award, LogOut, CheckSquare } from 'lucide-react';
-
-// const OwnerDashboard = () => {
-//   const [stats, setStats] = useState({ total: 0, todayLeads: 0, statusCounts: [] });
-//   const [leaderboard, setLeaderboard] = useState([]);
-
-//   useEffect(() => {
-//     const fetchPerformanceData = async () => {
-//       try {
-//         const summary = await api.get('/reports/summary');
-//         const operators = await api.get('/reports/operators');
-//         setStats(summary.data);
-//         setLeaderboard(operators.data);
-//       } catch (err) { console.error("Error compiling metrics", err); }
-//     };
-//     fetchPerformanceData();
-//   }, []);
-
-//   const handleLogout = () => {
-//     localStorage.removeItem('user');
-//     window.location.reload();
-//   };
-
-//   // Safe parsing to prevent structural division errors
-//   const closedDeals = stats.statusCounts?.find(s => s._id === 'Closed')?.count || 0;
-//   const conversionRate = stats.total > 0 ? ((closedDeals / stats.total) * 100).toFixed(1) : 0;
-
-//   return (
-//     <div className="p-6 bg-gray-50 min-h-screen">
-//       <div className="max-w-7xl mx-auto">
-//         {/* Header Block */}
-//         <div className="flex justify-between items-center mb-8 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-//           <div>
-//             <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><Shield className="text-indigo-600" size={24}/> Nexivo Holdings</h1>
-//             <p className="text-xs text-gray-400">Read-Only Administrative Performance System</p>
-//           </div>
-//           <button onClick={handleLogout} className="flex items-center gap-2 text-sm font-semibold text-red-500 hover:text-red-700 transition">
-//             <LogOut size={16} /> Logout
-//           </button>
-//         </div>
-
-//         {/* Analytic Cards Metric Matrix */}
-//         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-//           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-//             <div className="bg-blue-50 p-3 rounded-lg text-blue-600"><Users size={24}/></div>
-//             <div>
-//               <p className="text-xs font-bold text-gray-400 uppercase">Gross Database Entries</p>
-//               <h2 className="text-2xl font-black text-gray-800 mt-1">{stats.total}</h2>
-//             </div>
-//           </div>
-//           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-//             <div className="bg-emerald-50 p-3 rounded-lg text-emerald-600"><TrendingUp size={24}/></div>
-//             <div>
-//               <p className="text-xs font-bold text-gray-400 uppercase">System Conversion Rate</p>
-//               <h2 className="text-2xl font-black text-gray-800 mt-1">{conversionRate}%</h2>
-//             </div>
-//           </div>
-//           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-//             <div className="bg-purple-50 p-3 rounded-lg text-purple-600"><CheckSquare size={24}/></div>
-//             <div>
-//               <p className="text-xs font-bold text-gray-400 uppercase">Inbound Pipeline Traffic Today</p>
-//               <h2 className="text-2xl font-black text-gray-800 mt-1">{stats.todayLeads}</h2>
-//             </div>
-//           </div>
-//         </div>
-
-//         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-//           {/* Operator Performance Leaderboard Card */}
-//           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-//             <h2 className="text-sm font-bold uppercase text-gray-500 tracking-wider mb-4 flex items-center gap-2">
-//               <Award size={18} className="text-amber-500" /> Operator Leaderboard
-//             </h2>
-//             <div className="space-y-3 max-h-[300px] overflow-y-auto">
-//               {leaderboard.length === 0 ? (
-//                 <p className="text-sm text-gray-400 italic">Metrics unavailable: No operations logged yet.</p>
-//               ) : (
-//                 leaderboard.map((op, index) => (
-//                   <div key={op.name} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
-//                     <span className="font-semibold text-sm text-gray-700">{index + 1}. {op.name}</span>
-//                     <div className="text-right">
-//                       <p className="text-xs font-bold text-emerald-600">{op.closed} Deals Closed</p>
-//                       <p className="text-[10px] text-gray-400">{op.total} Allocated Leads</p>
-//                     </div>
-//                   </div>
-//                 ))
-//               )}
-//             </div>
-//           </div>
-
-//           {/* Graphical Metrics Bar Chart Display */}
-//           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 min-h-[350px]">
-//             <h2 className="text-sm font-bold uppercase text-gray-500 tracking-wider mb-6">Status Pipeline Proportions</h2>
-//             <ResponsiveContainer width="100%" height={260}>
-//               <BarChart data={stats.statusCounts}>
-//                 <XAxis dataKey="_id" tick={{ fontSize: 11 }} />
-//                 <YAxis tick={{ fontSize: 11 }} />
-//                 <Tooltip />
-//                 <Bar dataKey="count" fill="#4f46e5" radius={[6, 6, 0, 0]} />
-//               </BarChart>
-//             </ResponsiveContainer>
-//           </div>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default OwnerDashboard;

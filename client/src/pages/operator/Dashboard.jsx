@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../../api/axios';
 import { Link, useNavigate } from 'react-router-dom';
-import { PlusCircle, Bell, AlertCircle, Calendar, LogOut, Tag, ChevronRight } from 'lucide-react';
+import { PlusCircle, Bell, AlertCircle, Calendar, LogOut, Tag, ChevronRight, ChevronDown } from 'lucide-react';
  
 const OperatorDashboard = () => {
   const navigate = useNavigate();
@@ -46,7 +46,8 @@ const OperatorDashboard = () => {
  
   const statusStyle = (s) => {
     if (s === 'Closed') return { bg: 'rgba(52,211,153,0.12)', color: '#34d399', border: 'rgba(52,211,153,0.25)' };
-    if (s === 'Hot Mature') return { bg: 'rgba(251,113,133,0.12)', color: '#fb7185', border: 'rgba(251,113,133,0.25)' };
+    if (s === 'Hot') return { bg: 'rgba(239,68,68,0.12)', color: '#ef4444', border: 'rgba(239,68,68,0.25)' };
+    if (s === 'Mature') return { bg: 'rgba(99,102,241,0.12)', color: '#6366f1', border: 'rgba(99,102,241,0.25)' };
     return { bg: 'rgba(212,167,96,0.1)', color: 'var(--accent)', border: 'rgba(212,167,96,0.25)' };
   };
  
@@ -175,17 +176,20 @@ const OperatorDashboard = () => {
                   onFocus={e => e.target.style.borderColor = 'var(--accent)'}
                   onBlur={e => e.target.style.borderColor = 'var(--border)'}
                 />
-                <select style={{...inputStyle, appearance: 'none', cursor: 'pointer'}}
-                  value={formData.source}
-                  onChange={e => setFormData({...formData, source: e.target.value})}
-                  onFocus={e => e.target.style.borderColor = 'var(--accent)'}
-                  onBlur={e => e.target.style.borderColor = 'var(--border)'}
-                >
-                  <option value="Manual">Manual Entry</option>
-                  <option value="Facebook">Facebook Campaign</option>
-                  <option value="WhatsApp">WhatsApp Inbound</option>
-                  <option value="Website">Website Form</option>
-                </select>
+                <div style={{ position: 'relative' }}>
+                  <select style={{...inputStyle, appearance: 'none', cursor: 'pointer', paddingRight: '2rem'}}
+                    value={formData.source}
+                    onChange={e => setFormData({...formData, source: e.target.value})}
+                    onFocus={e => e.target.style.borderColor = 'var(--accent)'}
+                    onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                  >
+                    <option value="Manual">Manual Entry</option>
+                    <option value="Facebook">Facebook Campaign</option>
+                    <option value="WhatsApp">WhatsApp Inbound</option>
+                    <option value="Website">Website Form</option>
+                  </select>
+                  <ChevronDown size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                </div>
                 <button type="submit"
                   style={{
                     background: 'linear-gradient(135deg, var(--accent) 0%, #b8860b 100%)',
@@ -269,156 +273,3 @@ const OperatorDashboard = () => {
 };
  
 export default OperatorDashboard;
-
-
-
-
-
-
-// import { useState, useEffect } from 'react';
-// import api from '../../api/axios';
-// import { Link, useNavigate } from 'react-router-dom';
-// import { User, PlusCircle, Bell, AlertCircle, Calendar, LogOut, CheckCircle } from 'lucide-react';
-
-// const OperatorDashboard = () => {
-//   const navigate = useNavigate();
-//   const [leads, setLeads] = useState([]);
-//   const [reminders, setReminders] = useState([]);
-//   const [formData, setFormData] = useState({
-//     name: '', phone: '', city: '', project: '', budget: '', source: 'Manual'
-//   });
-
-//   const fetchDashboardData = async () => {
-//     try {
-//       const { data } = await api.get('/leads');
-//       setLeads(data);
-
-//       // Filter today's and overdue reminders (Requirement #5)
-//       const todayStr = new Date().setHours(0,0,0,0);
-//       const activeReminders = data.filter(lead => {
-//         if (!lead.followUpDate) return false;
-//         const followDate = new Date(lead.followUpDate).setHours(0,0,0,0);
-//         return followDate <= todayStr && lead.status !== 'Closed';
-//       });
-//       setReminders(activeReminders);
-//     } catch (err) { console.error("Error loading dashboard data", err); }
-//   };
-
-//   useEffect(() => { fetchDashboardData(); }, []);
-
-//   const handleSubmit = async (e) => {
-//     e.preventDefault();
-//     try {
-//       await api.post('/leads', { ...formData, assignedTo: JSON.parse(localStorage.getItem('user'))._id });
-//       alert("Lead captured successfully!");
-//       setFormData({ name: '', phone: '', city: '', project: '', budget: '', source: 'Manual' });
-//       fetchDashboardData();
-//     } catch (err) {
-//       alert(err.response?.data?.message || "Error saving lead");
-//     }
-//   };
-
-//   const handleLogout = () => {
-//     localStorage.removeItem('user');
-//     window.location.reload();
-//   };
-
-//   return (
-//     <div className="p-4 bg-gray-50 min-h-screen">
-//       <div className="max-w-6xl mx-auto">
-//         {/* Header Layout */}
-//         <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-//           <h1 className="text-xl font-bold flex items-center gap-2 text-gray-800">
-//             <User className="text-blue-600" /> Operator Panel
-//           </h1>
-//           <button onClick={handleLogout} className="flex items-center gap-2 text-sm font-semibold text-red-500 hover:text-red-700 transition">
-//             <LogOut size={16} /> Logout
-//           </button>
-//         </div>
-
-//         {/* Reminders & Alerts Section (Requirement #5) */}
-//         {reminders.length > 0 && (
-//           <div className="mb-6 space-y-2">
-//             <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-//               <Bell size={14} className="text-orange-500 animate-pulse" /> Urgent Alerts
-//             </h2>
-//             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-//               {reminders.map(lead => {
-//                 const isOverdue = new Date(lead.followUpDate) < new Date().setHours(0,0,0,0);
-//                 return (
-//                   <Link to={`/lead/${lead._id}`} key={lead._id} className={`flex items-center justify-between p-3 rounded-xl border shadow-sm transition hover:scale-[1.01] ${isOverdue ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
-//                     <div className="flex items-center gap-3">
-//                       {isOverdue ? <AlertCircle className="text-red-500" size={18} /> : <Calendar className="text-amber-500" size={18} />}
-//                       <div>
-//                         <p className={`font-bold text-xs ${isOverdue ? 'text-red-800' : 'text-amber-800'}`}>
-//                           {isOverdue ? 'Overdue Action Needed' : 'Follow-up Due Today'}: {lead.name}
-//                         </p>
-//                         <p className="text-[11px] text-gray-500">{lead.project || 'No project listed'} | {lead.phone}</p>
-//                       </div>
-//                     </div>
-//                   </Link>
-//                 );
-//               })}
-//             </div>
-//           </div>
-//         )}
-
-//         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-//           {/* Lead Input Form */}
-//           <div className="lg:col-span-1">
-//             <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-4">
-//               <h2 className="text-base font-bold flex items-center gap-2 text-gray-700"><PlusCircle size={18}/> Capture Lead</h2>
-//               <input className="w-full p-2.5 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-blue-500" placeholder="Prospect Name"规则 required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-//               <input className="w-full p-2.5 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-blue-500" placeholder="Phone Number" required value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-//               <input className="w-full p-2.5 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-blue-500" placeholder="City Location" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} />
-//               <input className="w-full p-2.5 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-blue-500" placeholder="Real Estate Project" value={formData.project} onChange={e => setFormData({...formData, project: e.target.value})} />
-//               <input className="w-full p-2.5 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-blue-500" placeholder="Estimated Budget" value={formData.budget} onChange={e => setFormData({...formData, budget: e.target.value})} />
-//               <select className="w-full p-2.5 text-sm border rounded-lg bg-white outline-none focus:ring-2 focus:ring-blue-500 text-gray-600" value={formData.source} onChange={e => setFormData({...formData, source: e.target.value})}>
-//                 <option value="Manual">Manual Entry</option>
-//                 <option value="Facebook">Facebook Campaign</option>
-//                 <option value="WhatsApp">WhatsApp Inbound</option>
-//                 <option value="Website">Website Form</option>
-//               </select>
-//               <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-bold hover:bg-blue-700 transition shadow-sm">Save & Register Prospect</button>
-//             </form>
-//           </div>
-
-//           {/* Assigned Pipeline Output List */}
-//           <div className="lg:col-span-2">
-//             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-//               <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
-//                 <h2 className="font-bold text-gray-700 text-sm">My Active Allocations</h2>
-//                 <span className="text-xs font-bold bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md border border-blue-100">{leads.length} Records</span>
-//               </div>
-//               <div className="divide-y max-h-[530px] overflow-y-auto">
-//                 {leads.length === 0 ? (
-//                   <p className="p-8 text-center text-sm text-gray-400 italic">No prospects currently routed to your desk.</p>
-//                 ) : (
-//                   leads.map(lead => (
-//                     <Link to={`/lead/${lead._id}`} key={lead._id} className="p-4 flex justify-between items-center hover:bg-gray-50/80 transition">
-//                       <div>
-//                         <p className="font-bold text-sm text-gray-800">{lead.name}</p>
-//                         <p className="text-xs text-gray-400 mt-0.5">{lead.project || 'General Inquiry'} • {lead.phone}</p>
-//                       </div>
-//                       <div className="text-right">
-//                         <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-//                           lead.status === 'Closed' ? 'bg-green-50 text-green-700 border border-green-100' :
-//                           lead.status === 'Hot Mature' ? 'bg-red-50 text-red-700 border border-red-100' :
-//                           'bg-amber-50 text-amber-700 border border-amber-100'
-//                         }`}>
-//                           {lead.status}
-//                         </span>
-//                       </div>
-//                     </Link>
-//                   ))
-//                 )}
-//               </div>
-//             </div>
-//           </div>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default OperatorDashboard;

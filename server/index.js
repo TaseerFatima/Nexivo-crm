@@ -23,10 +23,13 @@ app.use('/api/users',   require('./routes/users'))
 // Test route
 app.get('/', (req, res) => res.json({ message: 'Nexivo CRM API running' }))
 
+const runCronJobs = require('./cron');
+
 // MongoDB connect
 mongoose.connect(process.env.MONGO_URI, { family: 4 })
   .then(() => {
     console.log('MongoDB connected')
+    runCronJobs()
     app.listen(process.env.PORT, () =>
       console.log(`Server running on port ${process.env.PORT}`)
     )
